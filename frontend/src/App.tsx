@@ -8,22 +8,88 @@ const EVENT = {
   mapsUrl: 'https://maps.google.com/?q=Puebla+Mexico',
 };
 
-const G    = '#b5891e';
+const G     = '#b5891e';
 const GOLD2 = '#d4a832';
-const DARK = '#2e2416';
-{/*const CREAM = '#faf7f0';*/}
-const BLUE = '#3a7abf';
-const PINK = '#c44f78';
+const DARK  = '#2e2416';
+const BLUE  = '#3a7abf';
+const PINK  = '#c44f78';
 
 declare global {
   interface Window {
-    storage: {
+    storage?: {
       get(key: string, shared?: boolean): Promise<{ value: string } | null>;
       set(key: string, value: string, shared?: boolean): Promise<unknown>;
     };
   }
 }
 
+/* ─── STORAGE HELPERS ────────────────────────────────────────────────
+   Prioridad: window.storage (Claude) → localStorage (Vercel/browser)
+   El flag "shared" controla si es global (votos) o local (mi voto)
+   En localStorage no hay "shared" real, pero usamos prefijo distinto.
+──────────────────────────────────────────────────────────────────── */
+async function storeGet(key: string, shared = false): Promise<string | null> {
+  if (typeof window !== 'undefined' && window.storage) {
+    try {
+      const r = await window.storage.get(key, shared);
+      return r ? r.value : null;
+    } catch {}
+  }
+  // localStorage fallback (Vercel / cualquier browser)
+  try {
+    const lsKey = shared ? `shared_${key}` : `local_${key}`;
+    return localStorage.getItem(lsKey);
+  } catch { return null; }
+}
+
+async function storeSet(key: string, value: string, shared = false): Promise<void> {
+  if (typeof window !== 'undefined' && window.storage) {
+    try { await window.storage.set(key, value, shared); return; } catch {}
+  }
+  try {
+    const lsKey = shared ? `shared_${key}` : `local_${key}`;
+    localStorage.setItem(lsKey, value);
+  } catch {}
+}
+
+/* ─── BUNNY SVG ─── */
+function Bunny({ size = 60, color = G, opacity = 0.45, flip = false }: {
+  size?: number; color?: string; opacity?: number; flip?: boolean;
+}) {
+  return (
+    <svg
+      width={size} height={size * 1.35} viewBox="0 0 60 81"
+      style={{ opacity, display:'block', transform: flip ? 'scaleX(-1)' : undefined }}
+    >
+      {/* Ears */}
+      <ellipse cx="20" cy="18" rx="7"   ry="16" fill={color} opacity=".9"/>
+      <ellipse cx="20" cy="18" rx="3.5" ry="12" fill="rgba(255,230,210,.55)"/>
+      <ellipse cx="40" cy="16" rx="7"   ry="16" fill={color} opacity=".9"/>
+      <ellipse cx="40" cy="16" rx="3.5" ry="12" fill="rgba(255,230,210,.55)"/>
+      {/* Head */}
+      <ellipse cx="30" cy="36" rx="16" ry="15" fill={color}/>
+      {/* Eyes */}
+      <ellipse cx="24" cy="33" rx="2.8" ry="3"   fill={DARK} opacity=".65"/>
+      <ellipse cx="36" cy="33" rx="2.8" ry="3"   fill={DARK} opacity=".65"/>
+      <circle  cx="25" cy="32" r="1"             fill="white" opacity=".7"/>
+      <circle  cx="37" cy="32" r="1"             fill="white" opacity=".7"/>
+      {/* Nose */}
+      <ellipse cx="30" cy="39" rx="2" ry="1.4"   fill={DARK} opacity=".4"/>
+      {/* Cheeks */}
+      <ellipse cx="21" cy="40" rx="4" ry="2.5"   fill="rgba(255,180,140,.28)"/>
+      <ellipse cx="39" cy="40" rx="4" ry="2.5"   fill="rgba(255,180,140,.28)"/>
+      {/* Body */}
+      <ellipse cx="30" cy="62" rx="18" ry="16" fill={color} opacity=".95"/>
+      {/* Tail */}
+      <circle cx="48" cy="70" r="5.5" fill="rgba(255,252,245,.82)"/>
+      {/* Paws */}
+      <ellipse cx="18" cy="75" rx="6" ry="4" fill={color} opacity=".85"/>
+      <ellipse cx="42" cy="75" rx="6" ry="4" fill={color} opacity=".85"/>
+    </svg>
+  );
+}
+
+/* ─── UI HELPERS ─── */
 function Divider() {
   return (
     <div style={{ display:'flex', alignItems:'center', gap:12, margin:'32px 0' }}>
@@ -38,14 +104,36 @@ function Divider() {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <p style={{
-      fontFamily:"'Cormorant Garamond','Georgia',serif",
-      fontSize:13, letterSpacing:'.28em', color:G,
-      textAlign:'center', textTransform:'uppercase', margin:'0 0 22px',
-      fontWeight:600,
-    }}>
+    <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:13, letterSpacing:'.28em', color:G, textAlign:'center', textTransform:'uppercase', margin:'0 0 22px', fontWeight:600 }}>
       {children}
     </p>
+  );
+}
+
+/* ─── MARBLE SVG ─── */
+function MarbleSVG({ w, h }: { w: number; h: number }) {
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ position:'absolute', inset:0, borderRadius:16 }}>
+      <defs>
+        <filter id="mf">
+          <feTurbulence type="fractalNoise" baseFrequency="0.016 0.038" numOctaves="6" seed="7" result="n"/>
+          <feColorMatrix type="matrix" values="0.09 0 0 0 0.85  0.09 0 0 0 0.83  0.09 0 0 0 0.80  0 0 0 1.7 -.25" in="n"/>
+        </filter>
+        <linearGradient id="mg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%"   stopColor="#f9f6ef"/>
+          <stop offset="100%" stopColor="#f2ede3"/>
+        </linearGradient>
+      </defs>
+      <rect width={w} height={h} rx="16" fill="url(#mg)"/>
+      <rect width={w} height={h} rx="16" filter="url(#mf)" opacity=".72"/>
+      <path d={`M${w*.67},0 C${w*.7},${h*.09} ${w*.74},${h*.2} ${w*.76},${h*.36} S${w*.78},${h*.57} ${w*.72},${h*.75} S${w*.68},${h*.9} ${w*.65},${h}`} stroke="rgba(200,160,35,.48)" strokeWidth="2" fill="none"/>
+      <path d={`M${w*.73},0 C${w*.77},${h*.1} ${w*.82},${h*.23} ${w*.85},${h*.42} S${w*.87},${h*.62} ${w*.82},${h*.8}`} stroke="rgba(210,170,42,.44)" strokeWidth="2.5" fill="none"/>
+      <path d={`M${w*.8},0 C${w*.83},${h*.08} ${w*.87},${h*.18} ${w*.9},${h*.32} S${w*.92},${h*.5} ${w*.88},${h*.65}`} stroke="rgba(218,178,48,.52)" strokeWidth="1.6" fill="none"/>
+      <ellipse cx={w*.82} cy={h*.16} rx={w*.09} ry={h*.09} fill="rgba(218,178,48,.07)"/>
+      <path d={`M0,${h*.3} C${w*.14},${h*.28} ${w*.3},${h*.33} ${w*.5},${h*.3} S${w*.72},${h*.26} ${w*.88},${h*.3}`} stroke="rgba(178,172,162,.22)" strokeWidth=".9" fill="none"/>
+      <path d={`M0,${h*.62} C${w*.16},${h*.6} ${w*.35},${h*.65} ${w*.6},${h*.62} S${w*.8},${h*.58} ${w},${h*.62}`} stroke="rgba(178,172,162,.18)" strokeWidth=".75" fill="none"/>
+      <path d={`M${w*.15},0 C${w*.17},${h*.15} ${w*.2},${h*.32} ${w*.22},${h*.52} S${w*.2},${h*.72} ${w*.18},${h}`} stroke="rgba(178,172,162,.14)" strokeWidth=".7" fill="none"/>
+    </svg>
   );
 }
 
@@ -61,19 +149,15 @@ function WaxSeal() {
           <stop offset="65%"  stopColor="#b88018"/>
           <stop offset="100%" stopColor="#7a520c"/>
         </radialGradient>
-        <radialGradient id="sg2" cx="35%" cy="28%" r="72%">
-          <stop offset="0%"   stopColor="#fff8d0"/>
-          <stop offset="100%" stopColor="#c89010"/>
-        </radialGradient>
       </defs>
       <g style={{ filter:'drop-shadow(0 8px 20px rgba(120,75,5,.55))' }}>
         <rect x={sq.x} y={sq.y} width={sq.s} height={sq.s} rx={sq.r} fill="url(#sg)"/>
         {pos.map((p,i)=>(
           <g key={i}>
-            <circle cx={w*p}       cy={sq.y}       r={7.2} fill="url(#sg)"/>
-            <circle cx={w*p}       cy={sq.y+sq.s}  r={7.2} fill="url(#sg)"/>
-            <circle cx={sq.x}      cy={w*p}        r={7.2} fill="url(#sg)"/>
-            <circle cx={sq.x+sq.s} cy={w*p}        r={7.2} fill="url(#sg)"/>
+            <circle cx={w*p} cy={sq.y}       r={7.2} fill="url(#sg)"/>
+            <circle cx={w*p} cy={sq.y+sq.s}  r={7.2} fill="url(#sg)"/>
+            <circle cx={sq.x}       cy={w*p} r={7.2} fill="url(#sg)"/>
+            <circle cx={sq.x+sq.s}  cy={w*p} r={7.2} fill="url(#sg)"/>
           </g>
         ))}
       </g>
@@ -85,48 +169,12 @@ function WaxSeal() {
   );
 }
 
-function MarbleSVG({ w, h }: { w: number; h: number }) {
-  return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ position:'absolute', inset:0, borderRadius:16 }}>
-      <defs>
-        <filter id="mf">
-          <feTurbulence type="fractalNoise" baseFrequency="0.016 0.038" numOctaves="6" seed="7" result="n"/>
-          <feColorMatrix type="matrix"
-            values="0.09 0 0 0 0.85  0.09 0 0 0 0.83  0.09 0 0 0 0.80  0 0 0 1.7 -.25"
-            in="n"/>
-        </filter>
-        <linearGradient id="mg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%"   stopColor="#f9f6ef"/>
-          <stop offset="100%" stopColor="#f2ede3"/>
-        </linearGradient>
-      </defs>
-      <rect width={w} height={h} rx="16" fill="url(#mg)"/>
-      <rect width={w} height={h} rx="16" filter="url(#mf)" opacity=".72"/>
-      {/* Gold veins */}
-      <path d={`M${w*.67},0 C${w*.7},${h*.09} ${w*.74},${h*.2} ${w*.76},${h*.36} S${w*.78},${h*.57} ${w*.72},${h*.75} S${w*.68},${h*.9} ${w*.65},${h}`}
-        stroke="rgba(200,160,35,.48)" strokeWidth="2" fill="none"/>
-      <path d={`M${w*.73},0 C${w*.77},${h*.1} ${w*.82},${h*.23} ${w*.85},${h*.42} S${w*.87},${h*.62} ${w*.82},${h*.8}`}
-        stroke="rgba(210,170,42,.44)" strokeWidth="2.5" fill="none"/>
-      <path d={`M${w*.8},0 C${w*.83},${h*.08} ${w*.87},${h*.18} ${w*.9},${h*.32} S${w*.92},${h*.5} ${w*.88},${h*.65}`}
-        stroke="rgba(218,178,48,.52)" strokeWidth="1.6" fill="none"/>
-      <ellipse cx={w*.82} cy={h*.16} rx={w*.09} ry={h*.09} fill="rgba(218,178,48,.07)"/>
-      {/* Gray veins */}
-      <path d={`M0,${h*.3} C${w*.14},${h*.28} ${w*.3},${h*.33} ${w*.5},${h*.3} S${w*.72},${h*.26} ${w*.88},${h*.3}`}
-        stroke="rgba(178,172,162,.22)" strokeWidth=".9" fill="none"/>
-      <path d={`M0,${h*.62} C${w*.16},${h*.6} ${w*.35},${h*.65} ${w*.6},${h*.62} S${w*.8},${h*.58} ${w},${h*.62}`}
-        stroke="rgba(178,172,162,.18)" strokeWidth=".75" fill="none"/>
-      <path d={`M${w*.15},0 C${w*.17},${h*.15} ${w*.2},${h*.32} ${w*.22},${h*.52} S${w*.2},${h*.72} ${w*.18},${h}`}
-        stroke="rgba(178,172,162,.14)" strokeWidth=".7" fill="none"/>
-    </svg>
-  );
-}
-
 function Diamond({ size=18, op=0.8 }: { size?:number; op?:number }) {
   return (
     <svg width={size*1.4} height={size*2} viewBox="0 0 14 20" style={{ opacity:op, display:'block' }}>
       <polygon points="7,0 14,7 7,20 0,7" fill="#e8c840"/>
-      <polygon points="7,0 14,7 7,20"    fill="rgba(0,0,0,.12)"/>
-      <polygon points="7,0 7,20 0,7"     fill="rgba(255,255,255,.14)"/>
+      <polygon points="7,0 14,7 7,20" fill="rgba(0,0,0,.12)"/>
+      <polygon points="7,0 7,20 0,7"  fill="rgba(255,255,255,.14)"/>
       <line x1="0" y1="7" x2="14" y2="7" stroke="rgba(255,248,180,.45)" strokeWidth=".5"/>
     </svg>
   );
@@ -143,45 +191,17 @@ function Star4({ size=20, op=0.85 }: { size?:number; op?:number }) {
 /* ─── EVENT DETAILS ─── */
 function EventDetails() {
   const items = [
-    { icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <rect x="2" y="4" width="16" height="14" rx="2" stroke={G} strokeWidth="1.5"/>
-          <path d="M6 2v3M14 2v3M2 9h16" stroke={G} strokeWidth="1.5" strokeLinecap="round"/>
-          <circle cx="10" cy="14" r="1.5" fill={G}/>
-        </svg>
-      ), label:'Fecha', val:EVENT.date },
-    { icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <circle cx="10" cy="10" r="8" stroke={G} strokeWidth="1.5"/>
-          <path d="M10 6v4l3 2" stroke={G} strokeWidth="1.5" strokeLinecap="round"/>
-        </svg>
-      ), label:'Hora', val:EVENT.time },
-    { icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d="M10 2C7.24 2 5 4.24 5 7c0 3.75 5 11 5 11s5-7.25 5-11c0-2.76-2.24-5-5-5z" stroke={G} strokeWidth="1.5"/>
-          <circle cx="10" cy="7" r="2" fill={G} opacity=".6"/>
-        </svg>
-      ), label:'Lugar', val:EVENT.place },
-    { icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <rect x="3" y="6" width="14" height="11" rx="1.5" stroke={G} strokeWidth="1.5"/>
-          <path d="M3 9l7 5 7-5" stroke={G} strokeWidth="1.5" strokeLinecap="round"/>
-          <path d="M7 6V4a3 3 0 016 0v2" stroke={G} strokeWidth="1.5"/>
-        </svg>
-      ), label:'Dirección', val:EVENT.address },
+    { icon:<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="16" height="14" rx="2" stroke={G} strokeWidth="1.5"/><path d="M6 2v3M14 2v3M2 9h16" stroke={G} strokeWidth="1.5" strokeLinecap="round"/><circle cx="10" cy="14" r="1.5" fill={G}/></svg>, label:'Fecha', val:EVENT.date },
+    { icon:<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke={G} strokeWidth="1.5"/><path d="M10 6v4l3 2" stroke={G} strokeWidth="1.5" strokeLinecap="round"/></svg>, label:'Hora', val:EVENT.time },
+    { icon:<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2C7.24 2 5 4.24 5 7c0 3.75 5 11 5 11s5-7.25 5-11c0-2.76-2.24-5-5-5z" stroke={G} strokeWidth="1.5"/><circle cx="10" cy="7" r="2" fill={G} opacity=".6"/></svg>, label:'Lugar', val:EVENT.place },
+    { icon:<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="6" width="14" height="11" rx="1.5" stroke={G} strokeWidth="1.5"/><path d="M3 9l7 5 7-5" stroke={G} strokeWidth="1.5" strokeLinecap="round"/><path d="M7 6V4a3 3 0 016 0v2" stroke={G} strokeWidth="1.5"/></svg>, label:'Dirección', val:EVENT.address },
   ];
   return (
     <div>
       <SectionTitle>Detalles del Evento</SectionTitle>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
         {items.map(({ icon, label, val }) => (
-          <div key={label} style={{
-            padding:'16px 14px', borderRadius:12,
-            background:'rgba(255,255,255,0.55)',
-            border:`1px solid ${G}28`,
-            backdropFilter:'blur(4px)',
-            display:'flex', flexDirection:'column', gap:8,
-          }}>
+          <div key={label} style={{ padding:'14px 12px', borderRadius:12, background:'rgba(255,255,255,0.55)', border:`1px solid ${G}28`, backdropFilter:'blur(4px)', display:'flex', flexDirection:'column', gap:8 }}>
             <div style={{ opacity:.9 }}>{icon}</div>
             <div>
               <p style={{ fontSize:9.5, color:`${DARK}60`, letterSpacing:'.18em', textTransform:'uppercase', margin:'0 0 3px', fontFamily:'Georgia,serif' }}>{label}</p>
@@ -190,13 +210,11 @@ function EventDetails() {
           </div>
         ))}
       </div>
-      <div style={{ textAlign:'center', marginTop:22 }}>
+      <div style={{ textAlign:'center', marginTop:20 }}>
         <a href={EVENT.mapsUrl} target="_blank" rel="noopener noreferrer" style={{
-          display:'inline-block',
-          padding:'12px 32px', borderRadius:50,
+          display:'inline-block', padding:'12px 32px', borderRadius:50,
           background:`linear-gradient(135deg,${GOLD2},${G},#8a6010)`,
-          color:'white', textDecoration:'none',
-          fontSize:13, fontWeight:600, letterSpacing:'.1em',
+          color:'white', textDecoration:'none', fontSize:13, fontWeight:600, letterSpacing:'.1em',
           fontFamily:"'Cormorant Garamond','Georgia',serif",
           boxShadow:`0 6px 24px ${G}44, inset 0 1px 0 rgba(255,255,255,.2)`,
         }}>
@@ -214,75 +232,25 @@ function TeamVoting() {
   const [ready, setReady]   = useState(false);
 
   useEffect(() => {
-  (async () => {
-    try { 
-      // 1. Traemos los votos globales (esto ya lo tienes)
-      const v = await window.storage.get('bbs_votes', true); 
-      if (v) setVotes(JSON.parse(v.value)); 
-      
-      // 2. BUSCAMOS SI ESTE CEL YA VOTÓ
-      const m = await window.storage.get('bbs_my_vote'); // Sin el "true" para que sea local a este cel
-      if (m && m.value) {
-        setMyVote(m.value); // Si ya votó por "nino", esto bloquea los botones automáticamente
-      }
-    } catch (e) {
-      console.error("Error cargando votos", e);
-    }
-    setReady(true);
-  })();
-}, []);
+    (async () => {
+      try { const v = await storeGet('bbs_votes', true);    if (v) setVotes(JSON.parse(v)); } catch {}
+      try { const m = await storeGet('bbs_my_vote', false); if (m) setMyVote(m);            } catch {}
+      setReady(true);
+    })();
+  }, []);
 
   const castVote = async (team: 'nino' | 'nina') => {
-  // Si myVote ya tiene algo, nos salimos. No dejamos que pase nada.
-  if (myVote || !ready) return; 
-
-  const nv = { ...votes, [team]: votes[team] + 1 };
-  setVotes(nv); 
-  setMyVote(team); // Esto actualiza la interfaz al instante
-
-  try { 
-    // Guardamos el conteo global (el "true" es para que todos lo vean)
-    await window.storage.set('bbs_votes', JSON.stringify(nv), true); 
-    
-    // GUARDAMOS EL VOTO LOCAL (Sin el "true")
-    // Esto es lo que hace que cuando recarguen la página, el cel "recuerde" que ya votó.
-    await window.storage.set('bbs_my_vote', team); 
-  } catch (e) {
-    console.error("Error al guardar voto", e);
-  }
-};
+    if (myVote || !ready) return;
+    const nv = { ...votes, [team]: votes[team] + 1 };
+    setVotes(nv);
+    setMyVote(team);
+    try { await storeSet('bbs_votes',   JSON.stringify(nv), true);  } catch {}
+    try { await storeSet('bbs_my_vote', team,               false); } catch {}
+  };
 
   const total = votes.nino + votes.nina;
-  const np    = total ? Math.round(votes.nino/total*100) : 50;
+  const np    = total ? Math.round(votes.nino / total * 100) : 50;
   const fp    = 100 - np;
-
-  const VoteBtn = ({ team, color, lightColor, label, symbol }: {
-    team:'nino'|'nina'; color:string; lightColor:string; label:string; symbol: React.ReactNode;
-  }) => {
-    const isChosen = myVote === team;
-    const isOther  = myVote && myVote !== team;
-    return (
-      <button onClick={()=>castVote(team)} disabled={!!myVote} style={{
-        flex:1, padding:'20px 10px', borderRadius:14, border: isChosen ? `1.5px solid ${color}` : `1.5px solid ${color}44`,
-        cursor: myVote ? 'default' : 'pointer',
-        background: isChosen
-          ? `linear-gradient(145deg,${lightColor},${color})`
-          : isOther ? 'rgba(240,238,234,.6)'
-          : `linear-gradient(145deg,${lightColor}44,${color}22)`,
-        color: isOther ? '#b0a898' : color,
-        fontFamily:"'Cormorant Garamond','Georgia',serif",
-        fontSize:16, fontWeight:600,
-        boxShadow: isChosen ? `0 8px 28px ${color}40` : 'none',
-        transform: isChosen ? 'scale(1.03)' : 'scale(1)',
-        transition:'all .35s cubic-bezier(.34,1.56,.64,1)',
-        display:'flex', flexDirection:'column', alignItems:'center', gap:8,
-      }}>
-        <div style={{ fontSize:28, lineHeight:1, filter: isOther ? 'saturate(0) opacity(.4)' : 'none', transition:'filter .3s' }}>{symbol}</div>
-        <span style={{ letterSpacing:'.12em', fontSize:13, textTransform:'uppercase' }}>{label}</span>
-        {isChosen && <span style={{ fontSize:11, letterSpacing:'.08em', opacity:.8, fontStyle:'italic', fontWeight:400 }}>Tu voto ✓</span>}
-      </button>
-    );
-  };
 
   const HeartBlue = () => (
     <svg width="30" height="28" viewBox="0 0 30 28">
@@ -297,18 +265,44 @@ function TeamVoting() {
     </svg>
   );
 
+  const VoteBtn = ({ team, color, lightColor, label, symbol }: {
+    team:'nino'|'nina'; color:string; lightColor:string; label:string; symbol:React.ReactNode;
+  }) => {
+    const isChosen = myVote === team;
+    const isOther  = myVote && myVote !== team;
+    return (
+      <button onClick={()=>castVote(team)} disabled={!!myVote} style={{
+        flex:1, padding:'20px 10px', borderRadius:14,
+        border: isChosen ? `1.5px solid ${color}` : `1.5px solid ${color}44`,
+        cursor: myVote ? 'default' : 'pointer',
+        background: isChosen
+          ? `linear-gradient(145deg,${lightColor},${color})`
+          : isOther ? 'rgba(240,238,234,.6)'
+          : `linear-gradient(145deg,${lightColor}44,${color}22)`,
+        color: isOther ? '#b0a898' : color,
+        fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:16, fontWeight:600,
+        boxShadow: isChosen ? `0 8px 28px ${color}40` : 'none',
+        transform: isChosen ? 'scale(1.03)' : 'scale(1)',
+        transition:'all .35s cubic-bezier(.34,1.56,.64,1)',
+        display:'flex', flexDirection:'column', alignItems:'center', gap:8,
+      }}>
+        <div style={{ lineHeight:1, filter: isOther ? 'saturate(0) opacity(.4)' : 'none', transition:'filter .3s' }}>{symbol}</div>
+        <span style={{ letterSpacing:'.12em', fontSize:13, textTransform:'uppercase' }}>{label}</span>
+        {isChosen && <span style={{ fontSize:11, letterSpacing:'.08em', opacity:.8, fontStyle:'italic', fontWeight:400 }}>Tu voto ✓</span>}
+      </button>
+    );
+  };
+
   return (
     <div>
       <SectionTitle>Tu Predicción</SectionTitle>
       <p style={{ textAlign:'center', color:`${DARK}77`, fontSize:14, margin:'0 0 22px', fontFamily:"'Cormorant Garamond','Georgia',serif", fontStyle:'italic' }}>
         ¿Crees que será niño o niña?
       </p>
-
       <div style={{ display:'flex', gap:14, marginBottom: myVote ? 22 : 10 }}>
-        <VoteBtn team="nino" color={BLUE} lightColor="#a8c8ee" label="Niño" symbol={<HeartBlue/>}/>
-        <VoteBtn team="nina" color={PINK} lightColor="#f0b0c8" label="Niña" symbol={<HeartPink/>}/>
+        <VoteBtn team="nino" color={BLUE} lightColor="#a8c8ee" label="Niño"  symbol={<HeartBlue/>}/>
+        <VoteBtn team="nina" color={PINK} lightColor="#f0b0c8" label="Niña"  symbol={<HeartPink/>}/>
       </div>
-
       {myVote && total > 0 && (
         <div style={{ padding:20, background:'rgba(255,255,255,.5)', borderRadius:14, border:`1px solid ${G}28`, backdropFilter:'blur(4px)' }}>
           {([['nino',BLUE,np,votes.nino,'Niño'],['nina',PINK,fp,votes.nina,'Niña']] as const).map(([t,c,pct,cnt,lbl])=>(
@@ -318,11 +312,7 @@ function TeamVoting() {
                 <span style={{ color:c }}>{pct}%</span>
               </div>
               <div style={{ height:8, borderRadius:4, background:'rgba(0,0,0,.07)', overflow:'hidden' }}>
-                <div style={{
-                  height:'100%', width:`${pct}%`, borderRadius:4,
-                  background: t==='nino' ? `linear-gradient(to right,#8ab8e8,${BLUE})` : `linear-gradient(to right,#e8a0b8,${PINK})`,
-                  transition:'width 1.2s cubic-bezier(.34,1.56,.64,1)',
-                }}/>
+                <div style={{ height:'100%', width:`${pct}%`, borderRadius:4, background: t==='nino'?`linear-gradient(to right,#8ab8e8,${BLUE})`:`linear-gradient(to right,#e8a0b8,${PINK})`, transition:'width 1.2s cubic-bezier(.34,1.56,.64,1)' }}/>
               </div>
             </div>
           ))}
@@ -342,17 +332,17 @@ function TeamVoting() {
 
 /* ─── WISH MAILBOX ─── */
 function WishMailbox() {
-  const [messages, setMessages] = useState<{name:string;msg:string;date:string}[]>([]);
-  const [form, setForm]         = useState({ name:'', msg:'', email:'' });
-  const [errors, setErrors]     = useState({ name:false, msg:false });
-  const [submitted, setSubmitted] = useState(false);
+  const [messages, setMessages]     = useState<{name:string;msg:string;date:string}[]>([]);
+  const [form, setForm]             = useState({ name:'', msg:'', email:'' });
+  const [errors, setErrors]         = useState({ name:false, msg:false });
+  const [submitted, setSubmitted]   = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [aiText, setAiText]     = useState('');
-  const [copied, setCopied]     = useState(false);
+  const [aiText, setAiText]         = useState('');
+  const [copied, setCopied]         = useState(false);
 
   useEffect(()=>{
     (async()=>{
-      try { const m=await window.storage.get('bbs_msgs',true); if(m) setMessages(JSON.parse(m.value)); } catch {}
+      try { const m = await storeGet('bbs_msgs', true); if (m) setMessages(JSON.parse(m)); } catch {}
     })();
   },[]);
 
@@ -364,26 +354,20 @@ function WishMailbox() {
 
   const submit = async () => {
     if (!validate()) return;
-    const entry = {
-      name: form.name.trim(), msg: form.msg.trim(),
-      date: new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'}),
-    };
+    const entry = { name:form.name.trim(), msg:form.msg.trim(), date:new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'}) };
     const updated = [entry, ...messages];
     setMessages(updated);
-    try { await window.storage.set('bbs_msgs', JSON.stringify(updated), true); } catch {}
+    try { await storeSet('bbs_msgs', JSON.stringify(updated), true); } catch {}
     setSubmitted(true);
 
     if (form.email.trim()) {
       setGenerating(true);
       try {
         const res = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514', max_tokens: 600,
-            messages: [{ role:'user', content:
-              `Escribe una invitación de baby shower en español mexicano, cálida y elegante.\nDirigida a: ${form.name.trim()}\nOrganiza: Fátima y Daniel\nFecha: ${EVENT.date} — Hora: ${EVENT.time}\nLugar: ${EVENT.place}, ${EVENT.address}\nMáximo 170 palabras. Sin emojis. Saludo personal, anuncio, detalles y cierre emotivo firmado por Fátima y Daniel.`
-            }],
+            model:'claude-sonnet-4-20250514', max_tokens:600,
+            messages:[{ role:'user', content:`Escribe una invitación de baby shower en español mexicano, cálida y elegante.\nDirigida a: ${form.name.trim()}\nOrganiza: Fátima y Daniel\nFecha: ${EVENT.date} — Hora: ${EVENT.time}\nLugar: ${EVENT.place}, ${EVENT.address}\nMáximo 170 palabras. Sin emojis. Saludo personal, anuncio, detalles y cierre emotivo firmado por Fátima y Daniel.`}],
           }),
         });
         const d = await res.json();
@@ -394,27 +378,9 @@ function WishMailbox() {
     setForm({ name:'', msg:'', email:'' });
   };
 
-  const inputBase: React.CSSProperties = {
-    width:'100%', padding:'11px 14px',
-    border:`1.5px solid ${G}38`, borderRadius:10,
-    background:'rgba(255,255,255,.65)', backdropFilter:'blur(4px)',
-    fontSize:14, color:DARK, outline:'none',
-    fontFamily:"'Cormorant Garamond','Georgia',serif",
-    boxSizing:'border-box', transition:'border-color .2s',
-  };
-  const inputErr: React.CSSProperties = { ...inputBase, borderColor:'#c0392b' };
-  const labelStyle: React.CSSProperties = {
-    fontSize:10, color:G, letterSpacing:'.2em',
-    textTransform:'uppercase', display:'block', marginBottom:7,
-    fontFamily:'Georgia,serif', fontWeight:600,
-  };
-
-  const SendIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="white" style={{ display:'inline-block', verticalAlign:'middle', marginRight:8 }}>
-      <path d="M14.5 8L2 2l3 6-3 6z"/>
-      <path d="M5 8h9" stroke="white" strokeWidth="1.2" fill="none"/>
-    </svg>
-  );
+  const inp: React.CSSProperties = { width:'100%', padding:'11px 14px', border:`1.5px solid ${G}38`, borderRadius:10, background:'rgba(255,255,255,.65)', backdropFilter:'blur(4px)', fontSize:14, color:DARK, outline:'none', fontFamily:"'Cormorant Garamond','Georgia',serif", boxSizing:'border-box', transition:'border-color .2s' };
+  const inpErr: React.CSSProperties = { ...inp, borderColor:'#c0392b' };
+  const lbl: React.CSSProperties = { fontSize:10, color:G, letterSpacing:'.2em', textTransform:'uppercase', display:'block', marginBottom:7, fontFamily:'Georgia,serif', fontWeight:600 };
 
   return (
     <div>
@@ -422,71 +388,41 @@ function WishMailbox() {
       <p style={{ textAlign:'center', color:`${DARK}77`, fontSize:14, margin:'0 0 22px', fontFamily:"'Cormorant Garamond','Georgia',serif", fontStyle:'italic' }}>
         Déjale un mensaje a Fátima y Daniel
       </p>
-
       {!submitted ? (
         <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
           <div>
-            <label style={labelStyle}>Nombre completo *</label>
-            <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))}
-              placeholder="Tu nombre completo" style={errors.name ? inputErr : inputBase}/>
+            <label style={lbl}>Nombre completo *</label>
+            <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Tu nombre completo" style={errors.name?inpErr:inp}/>
             {errors.name && <p style={{ fontSize:11, color:'#c0392b', margin:'4px 0 0', fontFamily:'Georgia,serif' }}>Campo obligatorio</p>}
           </div>
           <div>
-            <label style={labelStyle}>Tu mensaje *</label>
-            <textarea value={form.msg} onChange={e=>setForm(f=>({...f,msg:e.target.value}))}
-              placeholder="Escribe tus buenos deseos para Fátima y Daniel…" rows={3}
-              style={{ ...(errors.msg ? inputErr : inputBase), resize:'vertical', lineHeight:1.65 }}/>
+            <label style={lbl}>Tu mensaje *</label>
+            <textarea value={form.msg} onChange={e=>setForm(f=>({...f,msg:e.target.value}))} placeholder="Escribe tus buenos deseos para Fátima y Daniel…" rows={3} style={{ ...(errors.msg?inpErr:inp), resize:'vertical', lineHeight:1.65 }}/>
             {errors.msg && <p style={{ fontSize:11, color:'#c0392b', margin:'4px 0 0', fontFamily:'Georgia,serif' }}>Campo obligatorio</p>}
           </div>
           <div>
-            <label style={labelStyle}>
-              Correo electrónico{' '}
-              <span style={{ color:`${DARK}55`, fontSize:9, letterSpacing:0, textTransform:'none', fontWeight:400 }}>(opcional)</span>
-            </label>
-            <input type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))}
-              placeholder="tu@correo.com" style={inputBase}/>
-            <p style={{ fontSize:11.5, color:`${DARK}66`, margin:'6px 0 0', fontFamily:"'Cormorant Garamond','Georgia',serif", fontStyle:'italic' }}>
-              Recibe una invitación personalizada por correo
-            </p>
+            <label style={lbl}>Correo electrónico <span style={{ color:`${DARK}55`, fontSize:9, letterSpacing:0, textTransform:'none', fontWeight:400 }}>(opcional)</span></label>
+            <input type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="tu@correo.com" style={inp}/>
+            <p style={{ fontSize:11.5, color:`${DARK}66`, margin:'6px 0 0', fontFamily:"'Cormorant Garamond','Georgia',serif", fontStyle:'italic' }}>Recibe una invitación personalizada por correo</p>
           </div>
-          <button onClick={submit} style={{
-            width:'100%', padding:'14px 20px', borderRadius:50, border:'none',
-            background:`linear-gradient(135deg,${GOLD2},${G},#8a6010)`,
-            color:'white', fontSize:14, fontWeight:600, cursor:'pointer',
-            letterSpacing:'.12em', fontFamily:"'Cormorant Garamond','Georgia',serif",
-            boxShadow:`0 6px 24px ${G}44, inset 0 1px 0 rgba(255,255,255,.18)`,
-            display:'flex', alignItems:'center', justifyContent:'center',
-          }}>
-            <SendIcon/> Enviar mensaje
+          <button onClick={submit} style={{ width:'100%', padding:'14px 20px', borderRadius:50, border:'none', background:`linear-gradient(135deg,${GOLD2},${G},#8a6010)`, color:'white', fontSize:14, fontWeight:600, cursor:'pointer', letterSpacing:'.12em', fontFamily:"'Cormorant Garamond','Georgia',serif", boxShadow:`0 6px 24px ${G}44, inset 0 1px 0 rgba(255,255,255,.18)`, display:'flex', alignItems:'center', justifyContent:'center', gap:10 }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M14.5 8L2 2l3 6-3 6z"/><path d="M5 8h9" stroke="white" strokeWidth="1.2" fill="none"/></svg>
+            Enviar mensaje
           </button>
         </div>
       ) : (
         <>
-          <div style={{
-            padding:26, background:'rgba(255,255,255,.55)', borderRadius:14,
-            border:`1px solid ${G}30`, backdropFilter:'blur(4px)',
-            textAlign:'center', marginBottom:18,
-          }}>
+          <div style={{ padding:26, background:'rgba(255,255,255,.55)', borderRadius:14, border:`1px solid ${G}30`, backdropFilter:'blur(4px)', textAlign:'center', marginBottom:18 }}>
             <svg width="44" height="44" viewBox="0 0 44 44" style={{ margin:'0 auto 14px', display:'block' }}>
               <circle cx="22" cy="22" r="21" fill="none" stroke={G} strokeWidth="1.5" opacity=".4"/>
               <path d="M12 22l8 8 12-16" stroke={G} strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:20, color:G, fontStyle:'italic', margin:'0 0 8px' }}>
-              ¡Gracias por tus buenos deseos!
-            </p>
-            <p style={{ fontSize:13.5, color:`${DARK}77`, margin:'0 0 18px', fontFamily:'Georgia,serif', fontStyle:'italic' }}>
-              Fátima y Daniel lo van a apreciar mucho
-            </p>
-            <button onClick={()=>setSubmitted(false)} style={{
-              padding:'9px 24px', borderRadius:50,
-              border:`1.5px solid ${G}`, background:'transparent',
-              color:G, fontSize:12, cursor:'pointer', letterSpacing:'.1em',
-              fontFamily:'Georgia,serif',
-            }}>
+            <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:20, color:G, fontStyle:'italic', margin:'0 0 8px' }}>¡Gracias por tus buenos deseos!</p>
+            <p style={{ fontSize:13.5, color:`${DARK}77`, margin:'0 0 18px', fontFamily:'Georgia,serif', fontStyle:'italic' }}>Fátima y Daniel lo van a apreciar mucho</p>
+            <button onClick={()=>setSubmitted(false)} style={{ padding:'9px 24px', borderRadius:50, border:`1.5px solid ${G}`, background:'transparent', color:G, fontSize:12, cursor:'pointer', letterSpacing:'.1em', fontFamily:'Georgia,serif' }}>
               Agregar otro mensaje
             </button>
           </div>
-
           {generating && (
             <div style={{ textAlign:'center', padding:18 }}>
               <div style={{ width:26, height:26, borderRadius:'50%', border:`2.5px solid ${G}33`, borderTopColor:G, display:'inline-block', marginBottom:12, animation:'spin .8s linear infinite' }}/>
@@ -495,25 +431,15 @@ function WishMailbox() {
           )}
           {aiText && (
             <div style={{ marginTop:18, padding:24, background:'linear-gradient(145deg,#faf7f0,#f5ead8)', borderRadius:14, border:`1px solid ${G}38` }}>
-              <p style={{ fontSize:10, color:G, letterSpacing:'.24em', textTransform:'uppercase', margin:'0 0 14px', fontFamily:'Georgia,serif', fontWeight:600 }}>
-                Invitación personalizada
-              </p>
+              <p style={{ fontSize:10, color:G, letterSpacing:'.24em', textTransform:'uppercase', margin:'0 0 14px', fontFamily:'Georgia,serif', fontWeight:600 }}>Invitación personalizada</p>
               <p style={{ fontSize:13.5, color:DARK, lineHeight:1.9, margin:'0 0 16px', whiteSpace:'pre-wrap', fontFamily:"'Cormorant Garamond','Georgia',serif" }}>{aiText}</p>
-              <button
-                onClick={()=>{ navigator.clipboard?.writeText(aiText).then(()=>{ setCopied(true); setTimeout(()=>setCopied(false),2200); }); }}
-                style={{
-                  padding:'9px 22px', borderRadius:50, border:`1.5px solid ${G}`,
-                  background: copied ? G : 'transparent',
-                  color: copied ? 'white' : G,
-                  fontSize:12, cursor:'pointer', transition:'all .25s', fontFamily:'Georgia,serif', letterSpacing:'.08em',
-                }}>
+              <button onClick={()=>{ navigator.clipboard?.writeText(aiText).then(()=>{ setCopied(true); setTimeout(()=>setCopied(false),2200); }); }} style={{ padding:'9px 22px', borderRadius:50, border:`1.5px solid ${G}`, background:copied?G:'transparent', color:copied?'white':G, fontSize:12, cursor:'pointer', transition:'all .25s', fontFamily:'Georgia,serif', letterSpacing:'.08em' }}>
                 {copied ? 'Copiado ✓' : 'Copiar texto'}
               </button>
             </div>
           )}
         </>
       )}
-
       {messages.length > 0 && (
         <div style={{ marginTop:28 }}>
           <p style={{ fontFamily:'Georgia,serif', fontSize:10, letterSpacing:'.22em', color:`${DARK}66`, textAlign:'center', textTransform:'uppercase', margin:'0 0 16px' }}>
@@ -521,11 +447,7 @@ function WishMailbox() {
           </p>
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
             {messages.slice(0,10).map((m,i)=>(
-              <div key={i} style={{
-                padding:'16px 18px', background:'rgba(255,255,255,.6)',
-                borderRadius:12, border:`1px solid ${G}20`,
-                boxShadow:'0 2px 10px rgba(0,0,0,.04)', backdropFilter:'blur(4px)',
-              }}>
+              <div key={i} style={{ padding:'16px 18px', background:'rgba(255,255,255,.6)', borderRadius:12, border:`1px solid ${G}20`, boxShadow:'0 2px 10px rgba(0,0,0,.04)', backdropFilter:'blur(4px)' }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:7 }}>
                   <span style={{ fontWeight:600, fontSize:15, color:DARK, fontFamily:"'Cormorant Garamond','Georgia',serif" }}>{m.name}</span>
                   <span style={{ fontSize:11, color:`${DARK}50`, fontFamily:'Georgia,serif', fontStyle:'italic' }}>{m.date}</span>
@@ -543,8 +465,29 @@ function WishMailbox() {
 /* ─── INVITATION PAGE ─── */
 function InvitationPage() {
   return (
-    <div style={{ background:'linear-gradient(160deg,#f2ede1 0%,#faf7f0 20%,#f8f4ec 100%)', padding:'clamp(32px,6vw,56px) clamp(16px,4vw,24px) 64px', minHeight:'100vh' }}>
-      <div style={{ maxWidth:520, margin:'0 auto' }}>
+    <div style={{ background:'linear-gradient(160deg,#f2ede1 0%,#faf7f0 20%,#f8f4ec 100%)', padding:'clamp(32px,6vw,56px) clamp(16px,4vw,24px) 64px', minHeight:'100vh', position:'relative', overflow:'hidden' }}>
+
+      {/* Side bunnies — fixed so no afectan el layout */}
+      {[
+        { left:'-10px', top:'10%',  size:52, op:.24, flip:false, dur:'4s',   del:'0s'  },
+        { left:'-8px',  top:'42%',  size:40, op:.18, flip:false, dur:'5.2s', del:'.8s' },
+        { left:'-6px',  top:'72%',  size:36, op:.15, flip:false, dur:'4.8s', del:'1.4s'},
+      ].map((b,i)=>(
+        <div key={`bl${i}`} className="bp" style={{ position:'fixed', left:b.left, top:b.top, zIndex:0, pointerEvents:'none', animationDuration:b.dur, animationDelay:b.del }}>
+          <Bunny size={b.size} color={G} opacity={b.op} flip={b.flip}/>
+        </div>
+      ))}
+      {[
+        { right:'-10px', top:'18%',  size:48, op:.22, dur:'4.5s', del:'0.5s'},
+        { right:'-8px',  top:'50%',  size:38, op:.17, dur:'3.8s', del:'1.8s'},
+        { right:'-6px',  top:'78%',  size:34, op:.14, dur:'5.5s', del:'.2s' },
+      ].map((b,i)=>(
+        <div key={`br${i}`} className="bp" style={{ position:'fixed', right:b.right, top:b.top, zIndex:0, pointerEvents:'none', animationDuration:b.dur, animationDelay:b.del }}>
+          <Bunny size={b.size} color={G} opacity={b.op} flip/>
+        </div>
+      ))}
+
+      <div style={{ maxWidth:520, margin:'0 auto', position:'relative', zIndex:1 }}>
 
         {/* Header */}
         <div style={{ textAlign:'center', marginBottom:8 }}>
@@ -558,11 +501,11 @@ function InvitationPage() {
             te invitan a celebrar
           </p>
           <div style={{ display:'inline-block', padding:'10px 32px', border:`1.5px solid ${G}88`, borderRadius:3, position:'relative' }}>
-            <div style={{ position:'absolute', top:-4, left:-4, width:8, height:8, borderTop:`1.5px solid ${G}`, borderLeft:`1.5px solid ${G}` }}/>
+            <div style={{ position:'absolute', top:-4, left:-4,  width:8, height:8, borderTop:`1.5px solid ${G}`, borderLeft:`1.5px solid ${G}` }}/>
             <div style={{ position:'absolute', top:-4, right:-4, width:8, height:8, borderTop:`1.5px solid ${G}`, borderRight:`1.5px solid ${G}` }}/>
-            <div style={{ position:'absolute', bottom:-4, left:-4, width:8, height:8, borderBottom:`1.5px solid ${G}`, borderLeft:`1.5px solid ${G}` }}/>
+            <div style={{ position:'absolute', bottom:-4, left:-4,  width:8, height:8, borderBottom:`1.5px solid ${G}`, borderLeft:`1.5px solid ${G}` }}/>
             <div style={{ position:'absolute', bottom:-4, right:-4, width:8, height:8, borderBottom:`1.5px solid ${G}`, borderRight:`1.5px solid ${G}` }}/>
-            <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:'clamp(17px,4vw,22px)', letterSpacing:'.32em', color:G, margin:0, fontWeight:600 }}>
+            <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:'clamp(15px,4vw,20px)', letterSpacing:'.28em', color:G, margin:0, fontWeight:600 }}>
               Revelación de Sexo
             </p>
           </div>
@@ -572,7 +515,14 @@ function InvitationPage() {
         <Divider/><TeamVoting/>
         <Divider/><WishMailbox/>
 
-        <div style={{ marginTop:44, textAlign:'center', paddingTop:28, borderTop:`1px solid ${G}20` }}>
+        {/* Footer bunnies */}
+        <div style={{ display:'flex', justifyContent:'center', alignItems:'flex-end', gap:6, margin:'36px 0 10px', opacity:.32 }}>
+          <Bunny size={26} color={G} opacity={1}/>
+          <Bunny size={34} color={G} opacity={1}/>
+          <Bunny size={26} color={G} opacity={1} flip/>
+        </div>
+
+        <div style={{ textAlign:'center', paddingTop:16, borderTop:`1px solid ${G}20` }}>
           <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:15, fontStyle:'italic', color:`${DARK}77`, margin:0 }}>Con amor,</p>
           <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:22, color:G, margin:'6px 0 0', fontStyle:'italic' }}>Fátima &amp; Daniel</p>
         </div>
@@ -584,25 +534,18 @@ function InvitationPage() {
 /* ─── PARTICLE DATA ─── */
 type P = {T:'D'|'S'|'dot'; l:number; t:number; s:number; r:number; dl:number; op:number};
 const ON_ENV: P[] = [
-  {T:'D',l:28,t:210,s:14,r:20,dl:.5,op:.5},
-  {T:'D',l:496,t:192,s:12,r:-15,dl:1.1,op:.45},
-  {T:'dot',l:55,t:155,s:7,r:0,dl:.9,op:.55},
-  {T:'dot',l:484,t:140,s:5,r:0,dl:1.3,op:.5},
+  {T:'D',l:28,t:210,s:14,r:20,dl:.5,op:.5},{T:'D',l:496,t:192,s:12,r:-15,dl:1.1,op:.45},
+  {T:'dot',l:55,t:155,s:7,r:0,dl:.9,op:.55},{T:'dot',l:484,t:140,s:5,r:0,dl:1.3,op:.5},
 ];
 const OUTSIDE: P[] = [
-  {T:'S',l:-50,t:34,s:20,r:0,dl:.6,op:.78},
-  {T:'S',l:-48,t:34,s:20,r:0,dl:.6,op:.78},
-  {T:'S',l:78,t:-42,s:15,r:20,dl:.3,op:.70},
-  {T:'S',l:-60,t:250,s:14,r:10,dl:.2,op:.65},
-  {T:'D',l:-60,t:-18,s:22,r:15,dl:.5,op:.72},
-  {T:'D',l:-65,t:162,s:24,r:30,dl:.8,op:.75},
-  {T:'S',l:195,t:-55,s:12,r:0,dl:1.2,op:.65},
+  {T:'S',l:-50,t:34,s:20,r:0,dl:.6,op:.78},{T:'S',l:78,t:-42,s:15,r:20,dl:.3,op:.70},
+  {T:'S',l:-60,t:250,s:14,r:10,dl:.2,op:.65},{T:'D',l:-60,t:-18,s:22,r:15,dl:.5,op:.72},
+  {T:'D',l:-65,t:162,s:24,r:30,dl:.8,op:.75},{T:'S',l:195,t:-55,s:12,r:0,dl:1.2,op:.65},
   {T:'S',l:-70,t:112,s:13,r:15,dl:1.6,op:.68},
 ];
 
-/* ─── RESPONSIVE ENVELOPE ─── */
+/* ─── ENVELOPE SCENE ─── */
 function EnvelopScene({ phase, onOpen }: { phase:'closed'|'opening'|'opened'; onOpen:()=>void }) {
-  // Responsive envelope dimensions
   const [envW, setEnvW] = useState(() => Math.min(window.innerWidth - 32, 520));
   const envH = Math.round(envW * 0.58);
 
@@ -612,76 +555,58 @@ function EnvelopScene({ phase, onOpen }: { phase:'closed'|'opening'|'opened'; on
     return () => window.removeEventListener('resize', update);
   }, []);
 
-  const scaleFactor = envW / 520;
+  const sf = envW / 520;
 
   return (
-    <div onClick={onOpen} style={{
-      minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center',
-      flexDirection:'column', gap:24,
-      background:'radial-gradient(ellipse 80% 70% at 52% 45%,#f4ede0 0%,#e8d4ba 48%,#d8c8aa 100%)',
-      overflow:'hidden', position:'relative',
-      cursor: phase==='closed' ? 'pointer' : 'default', userSelect:'none',
-      padding:'20px 16px',
-    }}>
-      {/* Ambient blobs */}
+    <div onClick={onOpen} style={{ minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:24, background:'radial-gradient(ellipse 80% 70% at 52% 45%,#f4ede0 0%,#e8d4ba 48%,#d8c8aa 100%)', overflow:'hidden', position:'relative', cursor:phase==='closed'?'pointer':'default', userSelect:'none', padding:'20px 16px' }}>
       {([[10,20,180,3,0],[80,10,220,3.5,1.2],[5,68,150,2.8,.6],[84,74,190,4,1.8],[50,5,120,3,.9],[20,85,110,2.5,.3]] as number[][]).map(([lx,ly,sz,dur,del],i)=>(
         <div key={i} className="bk" style={{ position:'absolute',left:`${lx}%`,top:`${ly}%`,width:sz,height:sz,borderRadius:'50%',transform:'translate(-50%,-50%)',background:'radial-gradient(circle,rgba(255,255,255,.55) 0%,transparent 70%)',filter:'blur(28px)',pointerEvents:'none',animationDuration:`${dur}s`,animationDelay:`${del}s` }}/>
       ))}
 
-      {/* Envelope */}
+      {/* Bunnies on envelope screen corners */}
+      <div className="bp" style={{ position:'absolute', left:'2%', bottom:'6%', pointerEvents:'none', animationDuration:'4.5s', animationDelay:'.4s', zIndex:2 }}>
+        <Bunny size={40} color={G} opacity={.2}/>
+      </div>
+      <div className="bp" style={{ position:'absolute', right:'2%', bottom:'6%', pointerEvents:'none', animationDuration:'5s', animationDelay:'1.5s', zIndex:2 }}>
+        <Bunny size={36} color={G} opacity={.18} flip/>
+      </div>
+
       <div className="env" style={{ position:'relative', width:envW, height:envH, flexShrink:0 }}>
         <MarbleSVG w={envW} h={envH}/>
-
-        {/* Inner triangles */}
         <svg style={{ position:'absolute',inset:0,pointerEvents:'none',borderRadius:16,overflow:'hidden' }} width={envW} height={envH} viewBox={`0 0 ${envW} ${envH}`}>
-          <polygon points={`0,0 0,${envH} ${envW/2},${envH*.53}`}      fill="rgba(242,239,233,.82)" stroke="rgba(202,196,186,.5)" strokeWidth=".7"/>
+          <polygon points={`0,0 0,${envH} ${envW/2},${envH*.53}`}            fill="rgba(242,239,233,.82)" stroke="rgba(202,196,186,.5)" strokeWidth=".7"/>
           <polygon points={`${envW},0 ${envW},${envH} ${envW/2},${envH*.53}`} fill="rgba(240,237,231,.78)" stroke="rgba(202,196,186,.5)" strokeWidth=".7"/>
           <polygon points={`0,${envH} ${envW},${envH} ${envW/2},${envH*.53}`} fill="rgba(238,234,228,.74)" stroke="rgba(202,196,186,.5)" strokeWidth=".7"/>
         </svg>
-
-        {/* Flap */}
-        <div className={`flap${phase==='opening'?' flap-go':''}`}
-          style={{ position:'absolute',top:0,left:0,width:'100%',height:'52%',zIndex:10,overflow:'hidden' }}>
+        <div className={`flap${phase==='opening'?' flap-go':''}`} style={{ position:'absolute',top:0,left:0,width:'100%',height:'52%',zIndex:10,overflow:'hidden' }}>
           <svg width={envW} height={envH*.52} viewBox={`0 0 ${envW} ${envH*.52}`} style={{ display:'block' }}>
             <polygon points={`0,0 ${envW},0 ${envW/2},${envH*.52}`} fill="rgba(246,244,238,.92)" stroke="rgba(202,196,186,.5)" strokeWidth=".7"/>
           </svg>
         </div>
-
-        {/* Shadow overlay */}
         <div style={{ position:'absolute',inset:0,borderRadius:16,pointerEvents:'none',zIndex:9,boxShadow:'inset 0 8px 30px rgba(0,0,0,.04),0 22px 60px rgba(0,0,0,.15),0 5px 18px rgba(0,0,0,.09)' }}/>
-
-        {/* Text */}
-        <div style={{ position:'absolute', top:envH*.2, width:'100%', textAlign:'center', zIndex:6, pointerEvents:'none',
-          fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:Math.max(18, envW*.052), fontStyle:'italic', color:G, letterSpacing:'.04em' }}>
+        <div style={{ position:'absolute', top:envH*.2, width:'100%', textAlign:'center', zIndex:6, pointerEvents:'none', fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:Math.max(18,envW*.052), fontStyle:'italic', color:G, letterSpacing:'.04em' }}>
           Te invitamos…
         </div>
-        <div style={{ position:'absolute', bottom:envH*.085, width:'100%', textAlign:'center', zIndex:6, pointerEvents:'none',
-          fontFamily:'Georgia,serif', fontSize:Math.max(8, envW*.02), fontWeight:600, letterSpacing:'.26em', color:`${G}cc` }}>
+        <div style={{ position:'absolute', bottom:envH*.085, width:'100%', textAlign:'center', zIndex:6, pointerEvents:'none', fontFamily:'Georgia,serif', fontSize:Math.max(8,envW*.02), fontWeight:600, letterSpacing:'.26em', color:`${G}cc` }}>
           TOCA PARA ABRIR
         </div>
-
-        {/* Wax seal */}
-        <div style={{ position:'absolute', left:'50%', top:'50%', transform:`translate(-50%,-40%) scale(${Math.max(.7, scaleFactor)})`, zIndex:15, pointerEvents:'none' }}>
+        <div style={{ position:'absolute', left:'50%', top:'50%', transform:`translate(-50%,-40%) scale(${Math.max(.7,sf)})`, zIndex:15, pointerEvents:'none' }}>
           <WaxSeal/>
         </div>
-
-        {/* On-envelope particles */}
         {ON_ENV.map(({T,l,t,s,r,dl,op},i)=>(
-          <div key={i} className="fp" style={{ position:'absolute', left:l*scaleFactor, top:t*(envH/280), zIndex:8, ['--r' as string]:`${r}deg`, animationDuration:`${2.5+i*.4}s`, animationDelay:`${dl}s`, pointerEvents:'none' }}>
-            {T==='D' ? <Diamond size={s} op={op}/> : <div style={{ width:s,height:s,borderRadius:'50%',background:'#d4a017',opacity:op }}/>}
+          <div key={i} className="fp" style={{ position:'absolute', left:l*sf, top:t*(envH/280), zIndex:8, ['--r' as string]:`${r}deg`, animationDuration:`${2.5+i*.4}s`, animationDelay:`${dl}s`, pointerEvents:'none' }}>
+            {T==='D'?<Diamond size={s} op={op}/>:<div style={{ width:s,height:s,borderRadius:'50%',background:'#d4a017',opacity:op }}/>}
           </div>
         ))}
-
-        {/* Outside particles */}
         {OUTSIDE.map(({T,l,t,s,r,dl,op},i)=>(
-          <div key={i} className={T==='S'?'sp':'fp'} style={{ position:'absolute', left:l*scaleFactor, top:t*(envH/280), zIndex:1, ['--r' as string]:`${r}deg`, ['--op' as string]:op, animationDuration:`${2+i*.3}s`, animationDelay:`${dl}s`, pointerEvents:'none' }}>
-            {T==='D' ? <Diamond size={s} op={op}/> : <Star4 size={s} op={op}/>}
+          <div key={i} className={T==='S'?'sp':'fp'} style={{ position:'absolute', left:l*sf, top:t*(envH/280), zIndex:1, ['--r' as string]:`${r}deg`, ['--op' as string]:op, animationDuration:`${2+i*.3}s`, animationDelay:`${dl}s`, pointerEvents:'none' }}>
+            {T==='D'?<Diamond size={s} op={op}/>:<Star4 size={s} op={op}/>}
           </div>
         ))}
       </div>
 
       <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:'clamp(13px,3.5vw,16px)', color:`${DARK}66`, fontStyle:'italic', margin:0, textAlign:'center', zIndex:10, pointerEvents:'none' }}>
-        Fátima &amp; Daniel • Baby Shower
+        Fátima &amp; Daniel • Revelación de Sexo
       </p>
     </div>
   );
@@ -692,7 +617,7 @@ export default function App() {
   const [phase, setPhase] = useState<'closed'|'opening'|'opened'>('closed');
 
   const open = useCallback(()=>{
-    if (phase!=='closed') return;
+    if (phase !== 'closed') return;
     setPhase('opening');
     setTimeout(()=>setPhase('opened'), 900);
   },[phase]);
@@ -709,6 +634,7 @@ export default function App() {
         @keyframes floatP   {0%,100%{transform:translateY(0) rotate(var(--r,0deg))}50%{transform:translateY(-10px) rotate(calc(var(--r,0deg)+8deg))}}
         @keyframes twinkP   {0%,100%{opacity:var(--op,.8);transform:scale(1) rotate(var(--r,0deg))}50%{opacity:1;transform:scale(1.4) rotate(calc(var(--r,0deg)+18deg))}}
         @keyframes bkP      {0%,100%{opacity:.22}50%{opacity:.42}}
+        @keyframes bunnyBob {0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
         @keyframes spin     {to{transform:rotate(360deg)}}
         .env     {animation:envIn .9s cubic-bezier(.16,1,.3,1) forwards}
         .flap    {transform-origin:top center;transform-style:preserve-3d}
@@ -717,18 +643,15 @@ export default function App() {
         .fp      {animation:floatP ease-in-out infinite}
         .sp      {animation:twinkP ease-in-out infinite}
         .bk      {animation:bkP   ease-in-out infinite}
+        .bp      {animation:bunnyBob ease-in-out infinite}
         input::placeholder,textarea::placeholder{color:rgba(46,36,22,.35)}
-        input:focus,textarea:focus{border-color:${G} !important; box-shadow:0 0 0 3px ${G}18}
+        input:focus,textarea:focus{border-color:${G} !important;box-shadow:0 0 0 3px ${G}18}
         textarea{font-family:'Cormorant Garamond','Georgia',serif}
         button:active{transform:scale(.97) !important}
       `}</style>
 
-      {phase !== 'opened' && (
-        <EnvelopScene phase={phase} onOpen={open}/>
-      )}
-      {phase === 'opened' && (
-        <div className="invite"><InvitationPage/></div>
-      )}
+      {phase !== 'opened' && <EnvelopScene phase={phase} onOpen={open}/>}
+      {phase === 'opened'  && <div className="invite"><InvitationPage/></div>}
     </>
   );
 }
