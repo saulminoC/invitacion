@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baby Shower & Gender Reveal - Fatima & Daniel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Montserrat:wght@300;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --boy-color: #89CFF0;
+            --girl-color: #F4C2C2;
+            --main-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: var(--main-bg);
+            color: #444;
+        }
+
+        .hero {
+            background: linear-gradient(rgba(255,255,255,0.7), rgba(255,255,255,0.7)), 
+                        url('https://www.transparenttextures.com/patterns/cubes.png');
+            padding: 80px 0;
+            text-align: center;
+            border-bottom: 5px solid #eee;
+        }
+
+        .cursive {
+            font-family: 'Dancing Script', cursive;
+            font-size: 4rem;
+            color: #555;
+        }
+
+        .card-custom {
+            border: none;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            transition: transform 0.3s;
+        }
+
+        .btn-vote {
+            border-radius: 50px;
+            padding: 15px 30px;
+            font-weight: 600;
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+
+        .btn-boy { background-color: var(--boy-color); border: none; color: white; }
+        .btn-girl { background-color: var(--girl-color); border: none; color: white; }
+        
+        .btn-boy:hover:not(:disabled) { background-color: #6fbce2; transform: translateY(-3px); color: white; }
+        .btn-girl:hover:not(:disabled) { background-color: #e0acac; transform: translateY(-3px); color: white; }
+        
+        /* Estilo para botones desactivados */
+        .btn-vote:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .progress {
+            height: 45px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        .map-container {
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .dress-code-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <header class="hero">
+        <div class="container">
+            <h1 class="cursive">¡Vamos a conocerlo!</h1>
+            <p class="lead fw-light mt-3">Únete a la revelación de sexo del bebé de</p>
+            <h2 class="fw-bold text-uppercase tracking-widest">Fatima & Daniel</h2>
+        </div>
+    </header>
+
+    <main class="container my-5">
+        
+        <section class="row justify-content-center text-center mb-5">
+            <div class="col-lg-8 card-custom bg-white p-5">
+                <h3 class="mb-4">¿Qué crees que será?</h3>
+                <p class="mb-5">Vota por tu opción favorita y ven vestido con una prenda de ese color.</p>
+                
+                <div class="row g-3 mb-5">
+                    <div class="col-6">
+                        <button id="btn-nino" onclick="enviarVoto('nino')" class="btn btn-vote btn-boy w-100 shadow">
+                            <i class="fas fa-mars me-2"></i> Es Niño
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button id="btn-nina" onclick="enviarVoto('nina')" class="btn btn-vote btn-girl w-100 shadow">
+                            <i class="fas fa-venus me-2"></i> Es Niña
+                        </button>
+                    </div>
+                </div>
+
+                <h5 class="text-muted mb-3">La gente opina que...</h5>
+                <div class="progress shadow-sm">
+                    <div id="bar-nino" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" 
+                         style="width: 50%; background-color: var(--boy-color);">50%</div>
+                    <div id="bar-nina" class="progress-bar" role="progressbar" 
+                         style="width: 50%; background-color: var(--girl-color);">50%</div>
+                </div>
+                <small id="total-votos" class="text-muted mt-3 d-block">Cargando apuestas...</small>
+            </div>
+        </section>
+
+        <section class="row text-center g-4 mb-5">
+            <div class="col-md-4">
+                <div class="p-4 card-custom bg-white h-100">
+                    <i class="far fa-calendar-alt fs-1 mb-3 text-secondary"></i>
+                    <h4>Cuándo</h4>
+                    <p>Sábado, 23 de Mayo de 2026<br>4:00 PM</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-4 card-custom bg-white h-100">
+                    <i class="fas fa-tshirt dress-code-icon text-secondary"></i>
+                    <h4>Dress Code</h4>
+                    <p>Trae una prenda azul o rosa según tu predicción.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-4 card-custom bg-white h-100">
+                    <i class="fas fa-gift fs-1 mb-3 text-secondary"></i>
+                    <h4>Mesa de Regalos</h4>
+                    <p>Tu presencia es nuestro mejor regalo, pero si gustas apoyarnos:</p>
+                    <a href="#" class="btn btn-sm btn-outline-dark">Ver Lista</a>
+                </div>
+            </div>
+        </section>
+
+        <section class="row mt-5">
+            <div class="col-12 text-center mb-4">
+                <h3>Ubicación</h3>
+                <p><i class="fas fa-map-marker-alt text-danger"></i> Salón de Eventos "La Nube", Puebla, México.</p>
+            </div>
+            <div class="col-12">
+                <div class="map-container shadow">
+                    <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3771.4215266854587!2d-98.2045!3d19.0433!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTnCsDAyJzM1LjkiTiA5OMKwMTInMTYuMiJX!5e0!3m2!1ses!2smx!4v1620000000000!5m2!1ses!2smx" 
+                        width="100%" height="400" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-dark text-white text-center py-4">
+        <p class="mb-0">¡Te esperamos con mucha emoción!</p>
+    </footer>
+
+    <script>
+        // Lógica de Votación
+        const getFingerprint = () => btoa(navigator.userAgent + screen.width).substring(0, 30);
+
+        async function cargarResultados() {
+            try {
+                const res = await fetch('api.php');
+                const data = await res.json();
+                
+                const total = data.total || 0;
+                const pNino = total > 0 ? Math.round((data.nino / total) * 100) : 50;
+                const pNina = total > 0 ? Math.round((data.nina / total) * 100) : 50;
+
+                const barNino = document.getElementById('bar-nino');
+                const barNina = document.getElementById('bar-nina');
+
+                barNino.style.width = pNino + '%';
+                barNino.innerText = pNino + '% NIÑO';
+                
+                barNina.style.width = pNina + '%';
+                barNina.innerText = pNina + '% NIÑA';
+
+                document.getElementById('total-votos').innerText = `Total de apuestas: ${total}`;
+            } catch (e) {
+                console.error("Error al cargar resultados");
+            }
+        }
+
+        async function enviarVoto(opcion) {
+            if (localStorage.getItem('voto_baby')) {
+                alert("¡Ya has participado en la apuesta!");
+                return;
+            }
+
+            const response = await fetch('api.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    opcion: opcion, 
+                    huella: getFingerprint() 
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                localStorage.setItem('voto_baby', 'true');
+                alert("¡Tu apuesta ha sido registrada!");
+                cargarResultados();
+                desactivarBotones();
+            } else {
+                alert(result.message);
+                if(result.message.includes("Ya hemos registrado")) {
+                    localStorage.setItem('voto_baby', 'true');
+                    desactivarBotones();
+                }
+            }
+        }
+
+        function desactivarBotones() {
+            document.getElementById('btn-nino').disabled = true;
+            document.getElementById('btn-nina').disabled = true;
+        }
+
+        // Ejecutar al cargar la página
+        window.onload = () => {
+            cargarResultados();
+            if (localStorage.getItem('voto_baby')) {
+                desactivarBotones();
+            }
+        };
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baby Shower & Gender Reveal - Fatima & Daniel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Montserrat:wght@300;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --boy-color: #89CFF0;
+            --girl-color: #F4C2C2;
+            --main-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: var(--main-bg);
+            color: #444;
+        }
+
+        .hero {
+            background: linear-gradient(rgba(255,255,255,0.7), rgba(255,255,255,0.7)), 
+                        url('https://www.transparenttextures.com/patterns/cubes.png');
+            padding: 80px 0;
+            text-align: center;
+            border-bottom: 5px solid #eee;
+        }
+
+        .cursive {
+            font-family: 'Dancing Script', cursive;
+            font-size: 4rem;
+            color: #555;
+        }
+
+        .card-custom {
+            border: none;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            transition: transform 0.3s;
+        }
+
+        .btn-vote {
+            border-radius: 50px;
+            padding: 15px 30px;
+            font-weight: 600;
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+
+        .btn-boy { background-color: var(--boy-color); border: none; color: white; }
+        .btn-girl { background-color: var(--girl-color); border: none; color: white; }
+        
+        .btn-boy:hover:not(:disabled) { background-color: #6fbce2; transform: translateY(-3px); color: white; }
+        .btn-girl:hover:not(:disabled) { background-color: #e0acac; transform: translateY(-3px); color: white; }
+        
+        /* Estilo para botones desactivados */
+        .btn-vote:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .progress {
+            height: 45px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        .map-container {
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .dress-code-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <header class="hero">
+        <div class="container">
+            <h1 class="cursive">¡Vamos a conocerlo!</h1>
+            <p class="lead fw-light mt-3">Únete a la revelación de sexo del bebé de</p>
+            <h2 class="fw-bold text-uppercase tracking-widest">Fatima & Daniel</h2>
+        </div>
+    </header>
+
+    <main class="container my-5">
+        
+        <section class="row justify-content-center text-center mb-5">
+            <div class="col-lg-8 card-custom bg-white p-5">
+                <h3 class="mb-4">¿Qué crees que será?</h3>
+                <p class="mb-5">Vota por tu opción favorita y ven vestido con una prenda de ese color.</p>
+                
+                <div class="row g-3 mb-5">
+                    <div class="col-6">
+                        <button id="btn-nino" onclick="enviarVoto('nino')" class="btn btn-vote btn-boy w-100 shadow">
+                            <i class="fas fa-mars me-2"></i> Es Niño
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button id="btn-nina" onclick="enviarVoto('nina')" class="btn btn-vote btn-girl w-100 shadow">
+                            <i class="fas fa-venus me-2"></i> Es Niña
+                        </button>
+                    </div>
+                </div>
+
+                <h5 class="text-muted mb-3">La gente opina que...</h5>
+                <div class="progress shadow-sm">
+                    <div id="bar-nino" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" 
+                         style="width: 50%; background-color: var(--boy-color);">50%</div>
+                    <div id="bar-nina" class="progress-bar" role="progressbar" 
+                         style="width: 50%; background-color: var(--girl-color);">50%</div>
+                </div>
+                <small id="total-votos" class="text-muted mt-3 d-block">Cargando apuestas...</small>
+            </div>
+        </section>
+
+        <section class="row text-center g-4 mb-5">
+            <div class="col-md-4">
+                <div class="p-4 card-custom bg-white h-100">
+                    <i class="far fa-calendar-alt fs-1 mb-3 text-secondary"></i>
+                    <h4>Cuándo</h4>
+                    <p>Sábado, 23 de Mayo de 2026<br>4:00 PM</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-4 card-custom bg-white h-100">
+                    <i class="fas fa-tshirt dress-code-icon text-secondary"></i>
+                    <h4>Dress Code</h4>
+                    <p>Trae una prenda azul o rosa según tu predicción.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-4 card-custom bg-white h-100">
+                    <i class="fas fa-gift fs-1 mb-3 text-secondary"></i>
+                    <h4>Mesa de Regalos</h4>
+                    <p>Tu presencia es nuestro mejor regalo, pero si gustas apoyarnos:</p>
+                    <a href="#" class="btn btn-sm btn-outline-dark">Ver Lista</a>
+                </div>
+            </div>
+        </section>
+
+        <section class="row mt-5">
+            <div class="col-12 text-center mb-4">
+                <h3>Ubicación</h3>
+                <p><i class="fas fa-map-marker-alt text-danger"></i> Salón de Eventos "La Nube", Puebla, México.</p>
+            </div>
+            <div class="col-12">
+                <div class="map-container shadow">
+                    <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3771.4215266854587!2d-98.2045!3d19.0433!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTnCsDAyJzM1LjkiTiA5OMKwMTInMTYuMiJX!5e0!3m2!1ses!2smx!4v1620000000000!5m2!1ses!2smx" 
+                        width="100%" height="400" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-dark text-white text-center py-4">
+        <p class="mb-0">¡Te esperamos con mucha emoción!</p>
+    </footer>
+
+    <script>
+        // Lógica de Votación
+        const getFingerprint = () => btoa(navigator.userAgent + screen.width).substring(0, 30);
+
+        async function cargarResultados() {
+            try {
+                const res = await fetch('api.php');
+                const data = await res.json();
+                
+                const total = data.total || 0;
+                const pNino = total > 0 ? Math.round((data.nino / total) * 100) : 50;
+                const pNina = total > 0 ? Math.round((data.nina / total) * 100) : 50;
+
+                const barNino = document.getElementById('bar-nino');
+                const barNina = document.getElementById('bar-nina');
+
+                barNino.style.width = pNino + '%';
+                barNino.innerText = pNino + '% NIÑO';
+                
+                barNina.style.width = pNina + '%';
+                barNina.innerText = pNina + '% NIÑA';
+
+                document.getElementById('total-votos').innerText = `Total de apuestas: ${total}`;
+            } catch (e) {
+                console.error("Error al cargar resultados");
+            }
+        }
+
+        async function enviarVoto(opcion) {
+            if (localStorage.getItem('voto_baby')) {
+                alert("¡Ya has participado en la apuesta!");
+                return;
+            }
+
+            const response = await fetch('api.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    opcion: opcion, 
+                    huella: getFingerprint() 
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                localStorage.setItem('voto_baby', 'true');
+                alert("¡Tu apuesta ha sido registrada!");
+                cargarResultados();
+                desactivarBotones();
+            } else {
+                alert(result.message);
+                if(result.message.includes("Ya hemos registrado")) {
+                    localStorage.setItem('voto_baby', 'true');
+                    desactivarBotones();
+                }
+            }
+        }
+
+        function desactivarBotones() {
+            document.getElementById('btn-nino').disabled = true;
+            document.getElementById('btn-nina').disabled = true;
+        }
+
+        // Ejecutar al cargar la página
+        window.onload = () => {
+            cargarResultados();
+            if (localStorage.getItem('voto_baby')) {
+                desactivarBotones();
+            }
+        };
+    </script>
+</body>
+</html>
