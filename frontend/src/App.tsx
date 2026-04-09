@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
 const EVENT = {
-  date:      'Sábado, 23 de Mayo de 2026',
+  date:      'Domingo, 17 de Mayo de 2026',
   time:      '4:00 PM',
   place:     'Salón de Eventos "La Nube"',
   address:   'Puebla, Puebla',
@@ -319,7 +319,7 @@ function DressCode({ myVote }: { myVote: string | null }) {
             <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:11, letterSpacing:'.28em', color:activeColor, textTransform:'uppercase', margin:'0 0 8px', fontWeight:600 }}>Tu color es</p>
             <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:32, color:activeColor, fontStyle:'italic', margin:'0 0 10px', fontWeight:600, lineHeight:1.1 }}>{isNino ? 'Azul' : 'Rosa'}</p>
             <p style={{ fontSize:13.5, color:`${DARK}88`, margin:0, fontFamily:"'Cormorant Garamond','Georgia',serif", fontStyle:'italic', lineHeight:1.6 }}>
-              {isNino ? 'Llegaste en Team Niño — luce tu azul con orgullo' : 'Llegaste en Team Niña — luce tu rosa con orgullo'}
+              {isNino ? 'Ven vestido de azul — Team Niño 💙' : 'Ven vestido de rosa — Team Niña 💖'}
             </p>
           </div>
           <div style={{ display:'flex', gap:10 }}>
