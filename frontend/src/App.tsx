@@ -11,7 +11,7 @@ const EVENT = {
 const G    = '#b5891e';
 const GOLD2 = '#d4a832';
 const DARK = '#2e2416';
-const CREAM = '#faf7f0';
+{/*const CREAM = '#faf7f0';*/}
 const BLUE = '#3a7abf';
 const PINK = '#c44f78';
 
