@@ -214,20 +214,43 @@ function TeamVoting() {
   const [ready, setReady]   = useState(false);
 
   useEffect(() => {
-    (async () => {
-      try { const v=await window.storage.get('bbs_votes',true); if(v) setVotes(JSON.parse(v.value)); } catch {}
-      try { const m=await window.storage.get('bbs_my_vote');    if(m) setMyVote(m.value);            } catch {}
-      setReady(true);
-    })();
-  }, []);
+  (async () => {
+    try { 
+      // 1. Traemos los votos globales (esto ya lo tienes)
+      const v = await window.storage.get('bbs_votes', true); 
+      if (v) setVotes(JSON.parse(v.value)); 
+      
+      // 2. BUSCAMOS SI ESTE CEL YA VOTÓ
+      const m = await window.storage.get('bbs_my_vote'); // Sin el "true" para que sea local a este cel
+      if (m && m.value) {
+        setMyVote(m.value); // Si ya votó por "nino", esto bloquea los botones automáticamente
+      }
+    } catch (e) {
+      console.error("Error cargando votos", e);
+    }
+    setReady(true);
+  })();
+}, []);
 
-  const castVote = async (team: 'nino'|'nina') => {
-    if (myVote || !ready) return;
-    const nv = { ...votes, [team]: votes[team]+1 };
-    setVotes(nv); setMyVote(team);
-    try { await window.storage.set('bbs_votes', JSON.stringify(nv), true); } catch {}
-    try { await window.storage.set('bbs_my_vote', team); } catch {}
-  };
+  const castVote = async (team: 'nino' | 'nina') => {
+  // Si myVote ya tiene algo, nos salimos. No dejamos que pase nada.
+  if (myVote || !ready) return; 
+
+  const nv = { ...votes, [team]: votes[team] + 1 };
+  setVotes(nv); 
+  setMyVote(team); // Esto actualiza la interfaz al instante
+
+  try { 
+    // Guardamos el conteo global (el "true" es para que todos lo vean)
+    await window.storage.set('bbs_votes', JSON.stringify(nv), true); 
+    
+    // GUARDAMOS EL VOTO LOCAL (Sin el "true")
+    // Esto es lo que hace que cuando recarguen la página, el cel "recuerde" que ya votó.
+    await window.storage.set('bbs_my_vote', team); 
+  } catch (e) {
+    console.error("Error al guardar voto", e);
+  }
+};
 
   const total = votes.nino + votes.nina;
   const np    = total ? Math.round(votes.nino/total*100) : 50;
@@ -359,7 +382,7 @@ function WishMailbox() {
           body: JSON.stringify({
             model: 'claude-sonnet-4-20250514', max_tokens: 600,
             messages: [{ role:'user', content:
-              `Escribe una invitación de baby shower en español mexicano, cálida y elegante.\nDirigida a: ${form.name.trim()}\nOrganiza: Daniel y Fátima\nFecha: ${EVENT.date} — Hora: ${EVENT.time}\nLugar: ${EVENT.place}, ${EVENT.address}\nMáximo 170 palabras. Sin emojis. Saludo personal, anuncio, detalles y cierre emotivo firmado por Daniel y Fátima.`
+              `Escribe una invitación de baby shower en español mexicano, cálida y elegante.\nDirigida a: ${form.name.trim()}\nOrganiza: Fátima y Daniel\nFecha: ${EVENT.date} — Hora: ${EVENT.time}\nLugar: ${EVENT.place}, ${EVENT.address}\nMáximo 170 palabras. Sin emojis. Saludo personal, anuncio, detalles y cierre emotivo firmado por Fátima y Daniel.`
             }],
           }),
         });
@@ -397,7 +420,7 @@ function WishMailbox() {
     <div>
       <SectionTitle>Buzón de Buenos Deseos</SectionTitle>
       <p style={{ textAlign:'center', color:`${DARK}77`, fontSize:14, margin:'0 0 22px', fontFamily:"'Cormorant Garamond','Georgia',serif", fontStyle:'italic' }}>
-        Déjale un mensaje a Daniel y Fátima
+        Déjale un mensaje a Fátima y Daniel
       </p>
 
       {!submitted ? (
@@ -411,7 +434,7 @@ function WishMailbox() {
           <div>
             <label style={labelStyle}>Tu mensaje *</label>
             <textarea value={form.msg} onChange={e=>setForm(f=>({...f,msg:e.target.value}))}
-              placeholder="Escribe tus buenos deseos para Daniel y Fátima…" rows={3}
+              placeholder="Escribe tus buenos deseos para Fátima y Daniel…" rows={3}
               style={{ ...(errors.msg ? inputErr : inputBase), resize:'vertical', lineHeight:1.65 }}/>
             {errors.msg && <p style={{ fontSize:11, color:'#c0392b', margin:'4px 0 0', fontFamily:'Georgia,serif' }}>Campo obligatorio</p>}
           </div>
@@ -452,7 +475,7 @@ function WishMailbox() {
               ¡Gracias por tus buenos deseos!
             </p>
             <p style={{ fontSize:13.5, color:`${DARK}77`, margin:'0 0 18px', fontFamily:'Georgia,serif', fontStyle:'italic' }}>
-              Daniel y Fátima lo van a apreciar mucho
+              Fátima y Daniel lo van a apreciar mucho
             </p>
             <button onClick={()=>setSubmitted(false)} style={{
               padding:'9px 24px', borderRadius:50,
@@ -529,7 +552,7 @@ function InvitationPage() {
             Con mucho amor
           </p>
           <h1 style={{ fontFamily:"'Cormorant Garamond','Georgia','Times New Roman',serif", fontSize:'clamp(34px,8vw,50px)', fontStyle:'italic', color:DARK, margin:'0 0 6px', fontWeight:400, lineHeight:1.15 }}>
-            Daniel &amp; Fátima
+            Fátima &amp; Daniel
           </h1>
           <p style={{ fontSize:13, color:`${DARK}77`, margin:'0 0 22px', fontFamily:'Georgia,serif', fontStyle:'italic' }}>
             te invitan a celebrar
@@ -540,7 +563,7 @@ function InvitationPage() {
             <div style={{ position:'absolute', bottom:-4, left:-4, width:8, height:8, borderBottom:`1.5px solid ${G}`, borderLeft:`1.5px solid ${G}` }}/>
             <div style={{ position:'absolute', bottom:-4, right:-4, width:8, height:8, borderBottom:`1.5px solid ${G}`, borderRight:`1.5px solid ${G}` }}/>
             <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:'clamp(17px,4vw,22px)', letterSpacing:'.32em', color:G, margin:0, fontWeight:600 }}>
-              BABY SHOWER
+              Revelación de Sexo
             </p>
           </div>
         </div>
@@ -551,7 +574,7 @@ function InvitationPage() {
 
         <div style={{ marginTop:44, textAlign:'center', paddingTop:28, borderTop:`1px solid ${G}20` }}>
           <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:15, fontStyle:'italic', color:`${DARK}77`, margin:0 }}>Con amor,</p>
-          <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:22, color:G, margin:'6px 0 0', fontStyle:'italic' }}>Daniel &amp; Fátima</p>
+          <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:22, color:G, margin:'6px 0 0', fontStyle:'italic' }}>Fátima &amp; Daniel</p>
         </div>
       </div>
     </div>
@@ -658,7 +681,7 @@ function EnvelopScene({ phase, onOpen }: { phase:'closed'|'opening'|'opened'; on
       </div>
 
       <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:'clamp(13px,3.5vw,16px)', color:`${DARK}66`, fontStyle:'italic', margin:0, textAlign:'center', zIndex:10, pointerEvents:'none' }}>
-        Daniel &amp; Fátima • Baby Shower
+        Fátima &amp; Daniel • Baby Shower
       </p>
     </div>
   );
