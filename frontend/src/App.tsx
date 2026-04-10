@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+const API_URL = 'http://127.0.0.1:8000/api/baby-shower';
 
 const EVENT = {
   date:      'Domingo, 17 de Mayo de 2026',
@@ -173,16 +174,31 @@ function EventDetails() {
         ))}
       </div>
       <div style={{ borderRadius:14, overflow:'hidden', border:`1px solid ${G}28`, boxShadow:'0 4px 20px rgba(0,0,0,.08)', marginBottom:16 }}>
+        {/* MAPA CON TRUCO PARA ESCONDER EL CUADRO BLANCO */}
+      <div style={{ 
+        borderRadius: 14, 
+        overflow: 'hidden', // Esto recorta lo que se salga
+        border: `1px solid ${G}28`, 
+        boxShadow: '0 4px 20px rgba(0,0,0,.08)',
+        height: 220, // La altura visible final del mapa
+        position: 'relative'
+      }}>
         <iframe
           src={EVENT.mapsEmbed}
-          width="100%"
-          height="220"
-          style={{ display:'block', border:'none' }}
+          style={{ 
+            position: 'absolute',
+            top: -65, // Empujamos el mapa 65px hacia arriba para esconder el letrero
+            left: 0,
+            width: '100%', 
+            height: '285px', // Le damos más altura para compensar lo que subimos
+            border: 'none' 
+          }}
           allowFullScreen
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
           title="Ubicación del evento"
         />
+      </div>
       </div>
       <div style={{ textAlign:'center' }}>
         <a href={EVENT.mapsLink} target="_blank" rel="noopener noreferrer" style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'12px 32px', borderRadius:50, background:`linear-gradient(135deg,${GOLD2},${G},#8a6010)`, color:'white', textDecoration:'none', fontSize:13, fontWeight:600, letterSpacing:'.1em', fontFamily:"'Cormorant Garamond','Georgia',serif", boxShadow:`0 6px 24px ${G}44, inset 0 1px 0 rgba(255,255,255,.2)` }}>
@@ -201,18 +217,54 @@ function TeamVoting({ onVoteChange }: { onVoteChange: (v: string | null) => void
 
   useEffect(() => {
     (async () => {
-      try { const v = await storeGet('bbs_votes', true);    if (v) setVotes(JSON.parse(v)); } catch {}
-      try { const m = await storeGet('bbs_my_vote', false); if (m) { setMyVote(m); onVoteChange(m); } } catch {}
+      try { 
+        // 1. Obtenemos los votos reales de la base de datos MySQL
+        const res = await fetch(API_URL);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.votes) setVotes(data.votes);
+        }
+      } catch (e) { console.error("Error cargando API:", e); }
+      
+      try { 
+        // 2. Revisamos si ESTE celular ya votó localmente
+        const m = localStorage.getItem('local_bbs_my_vote'); 
+        if (m) { setMyVote(m); onVoteChange(m); } 
+      } catch {}
+      
       setReady(true);
     })();
   }, []);
 
   const castVote = async (team: 'nino' | 'nina') => {
     if (myVote || !ready) return;
+    
+    // Actualizamos UI al instante (Optimistic Update)
+    setMyVote(team); 
+    onVoteChange(team);
     const nv = { ...votes, [team]: votes[team] + 1 };
-    setVotes(nv); setMyVote(team); onVoteChange(team);
-    try { await storeSet('bbs_votes', JSON.stringify(nv), true); } catch {}
-    try { await storeSet('bbs_my_vote', team, false); } catch {}
+    setVotes(nv);
+
+    try { 
+        // Bloqueamos el celular
+        localStorage.setItem('local_bbs_my_vote', team); 
+    } catch {}
+
+    try { 
+        // Mandamos el voto a Laravel
+        const res = await fetch(`${API_URL}/vote`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ team })
+        });
+        if (res.ok) {
+            const updatedVotes = await res.json();
+            setVotes(updatedVotes); // Sincronizamos con el conteo real
+        }
+    } catch (e) { console.error("Error guardando voto:", e); }
   };
 
   const total = votes.nino + votes.nina;
@@ -342,7 +394,7 @@ function DressCode({ myVote }: { myVote: string | null }) {
 }
 
 function WishMailbox() {
-  const [messages, setMessages] = useState<{name:string;msg:string;date:string}[]>([]);
+  const [messages, setMessages] = useState<{name:string;message:string;created_at:string}[]>([]);
   const [form, setForm] = useState({ name:'', msg:'', email:'' });
   const [errors, setErrors] = useState({ name:false, msg:false });
   const [submitted, setSubmitted] = useState(false);
@@ -350,23 +402,72 @@ function WishMailbox() {
   const [aiText, setAiText] = useState('');
   const [copied, setCopied] = useState(false);
 
+  // Cargamos los mensajes al abrir la página
   useEffect(()=>{
-    (async()=>{ try { const m = await storeGet('bbs_msgs', true); if (m) setMessages(JSON.parse(m)); } catch {} })();
+    (async()=>{ 
+        try { 
+            const res = await fetch(API_URL);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.messages) setMessages(data.messages);
+            }
+        } catch (e) { console.error("Error cargando mensajes", e); } 
+    })();
   },[]);
 
-  const validate = () => { const e = { name:!form.name.trim(), msg:!form.msg.trim() }; setErrors(e); return !e.name && !e.msg; };
+  const validate = () => { 
+      const e = { name:!form.name.trim(), msg:!form.msg.trim() }; 
+      setErrors(e); 
+      return !e.name && !e.msg; 
+  };
 
   const submit = async () => {
     if (!validate()) return;
-    const entry = { name:form.name.trim(), msg:form.msg.trim(), date:new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'}) };
-    const updated = [entry, ...messages];
-    setMessages(updated);
-    try { await storeSet('bbs_msgs', JSON.stringify(updated), true); } catch {}
+    
+    // 1. Mostrarlo en la interfaz al instante (para que no se sienta lento)
+    const tempEntry = { 
+        name: form.name.trim(), 
+        message: form.msg.trim(), 
+        created_at: new Date().toISOString() 
+    };
+    setMessages([tempEntry, ...messages]);
     setSubmitted(true);
+
+    // 2. Mandarlo a Laravel (MySQL)
+    try { 
+        const res = await fetch(`${API_URL}/message`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ name: tempEntry.name, msg: tempEntry.message })
+        });
+        
+        if (res.ok) {
+            const updatedMessages = await res.json();
+            setMessages(updatedMessages); // Sincronizamos con la base de datos real
+        }
+    } catch (e) { console.error("Error guardando el mensaje en el server", e); }
+
+    // 3. Generar la invitación por IA
     if (form.email.trim()) {
       setGenerating(true);
       try {
-        const res = await fetch('https://api.anthropic.com/v1/messages', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:600, messages:[{ role:'user', content:`Escribe una invitación de revelación de sexo de bebé en español mexicano, cálida y elegante.\nDirigida a: ${form.name.trim()}\nOrganiza: Fátima y Daniel\nFecha: ${EVENT.date} — Hora: ${EVENT.time}\nLugar: ${EVENT.place}, ${EVENT.address}\nMáximo 170 palabras. Sin emojis. Saludo personal, anuncio, detalles y cierre emotivo firmado por Fátima y Daniel.`}] }) });
+        const res = await fetch('https://api.anthropic.com/v1/messages', { 
+            method:'POST', 
+            headers:{
+                'Content-Type':'application/json',
+                'x-api-key': 'TU_API_KEY_AQUI', // Ojo aquí
+                'anthropic-version': '2023-06-01',
+                'anthropic-dangerously-allow-browser': 'true'
+            }, 
+            body: JSON.stringify({ 
+                model:'claude-3-sonnet-20240229', 
+                max_tokens:600,
+                messages:[{ role:'user', content:`Escribe una invitación de revelación de Género de bebé en español mexicano, cálida y elegante.\nDirigida a: ${form.name.trim()}\nOrganiza: Fátima y Daniel\nFecha: Domingo, 17 de Mayo de 2026 — Hora: 4:00 PM\nLugar: Salón de Eventos "La Nube", Puebla\nMáximo 170 palabras. Sin emojis. Saludo personal, anuncio, detalles y cierre emotivo firmado por Fátima y Daniel.`}] 
+            }) 
+        });
         const d = await res.json();
         setAiText(d.content?.map((c:{text?:string})=>c.text||'').join('')||'');
       } catch { setAiText('No se pudo generar la invitación en este momento.'); }
@@ -379,10 +480,16 @@ function WishMailbox() {
   const inpErr: React.CSSProperties = { ...inp, borderColor:'#c0392b' };
   const lbl: React.CSSProperties = { fontSize:10, color:G, letterSpacing:'.2em', textTransform:'uppercase', display:'block', marginBottom:7, fontFamily:'Georgia,serif', fontWeight:600 };
 
+  const formatDate = (dateString: string) => {
+      try { return new Date(dateString).toLocaleDateString('es-MX', {day:'numeric', month:'short', year:'numeric'}); } 
+      catch { return ''; }
+  };
+
   return (
     <div>
       <SectionTitle>Buzón de Buenos Deseos</SectionTitle>
       <p style={{ textAlign:'center', color:`${DARK}77`, fontSize:14, margin:'0 0 22px', fontFamily:"'Cormorant Garamond','Georgia',serif", fontStyle:'italic' }}>Déjale un mensaje a Fátima y Daniel</p>
+      
       {!submitted ? (
         <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
           <div>
@@ -413,15 +520,16 @@ function WishMailbox() {
               <path d="M12 22l8 8 12-16" stroke={G} strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:20, color:G, fontStyle:'italic', margin:'0 0 8px' }}>¡Gracias por tus buenos deseos!</p>
-            <p style={{ fontSize:13.5, color:`${DARK}77`, margin:'0 0 18px', fontFamily:'Georgia,serif', fontStyle:'italic' }}>Fátima y Daniel lo van a apreciar mucho</p>
             <button onClick={()=>setSubmitted(false)} style={{ padding:'9px 24px', borderRadius:50, border:`1.5px solid ${G}`, background:'transparent', color:G, fontSize:12, cursor:'pointer', letterSpacing:'.1em', fontFamily:'Georgia,serif' }}>Agregar otro mensaje</button>
           </div>
+          
           {generating && (
             <div style={{ textAlign:'center', padding:18 }}>
               <div style={{ width:26, height:26, borderRadius:'50%', border:`2.5px solid ${G}33`, borderTopColor:G, display:'inline-block', marginBottom:12, animation:'spin .8s linear infinite' }}/>
               <p style={{ color:G, fontSize:13.5, fontStyle:'italic', margin:0, fontFamily:'Georgia,serif' }}>Preparando tu invitación…</p>
             </div>
           )}
+          
           {aiText && (
             <div style={{ marginTop:18, padding:24, background:'linear-gradient(145deg,#faf7f0,#f5ead8)', borderRadius:14, border:`1px solid ${G}38` }}>
               <p style={{ fontSize:10, color:G, letterSpacing:'.24em', textTransform:'uppercase', margin:'0 0 14px', fontFamily:'Georgia,serif', fontWeight:600 }}>Invitación personalizada</p>
@@ -433,7 +541,8 @@ function WishMailbox() {
           )}
         </>
       )}
-      {messages.length > 0 && (
+
+      {/*{messages.length > 0 && (
         <div style={{ marginTop:28 }}>
           <p style={{ fontFamily:'Georgia,serif', fontSize:10, letterSpacing:'.22em', color:`${DARK}66`, textAlign:'center', textTransform:'uppercase', margin:'0 0 16px' }}>Mensajes recibidos ({messages.length})</p>
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
@@ -441,14 +550,74 @@ function WishMailbox() {
               <div key={i} style={{ padding:'16px 18px', background:'rgba(255,255,255,.6)', borderRadius:12, border:`1px solid ${G}20`, boxShadow:'0 2px 10px rgba(0,0,0,.04)', backdropFilter:'blur(4px)' }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:7 }}>
                   <span style={{ fontWeight:600, fontSize:15, color:DARK, fontFamily:"'Cormorant Garamond','Georgia',serif" }}>{m.name}</span>
-                  <span style={{ fontSize:11, color:`${DARK}50`, fontFamily:'Georgia,serif', fontStyle:'italic' }}>{m.date}</span>
+                  <span style={{ fontSize:11, color:`${DARK}50`, fontFamily:'Georgia,serif', fontStyle:'italic' }}>{formatDate(m.created_at)}</span>
                 </div>
-                <p style={{ fontSize:13.5, color:`${DARK}bb`, lineHeight:1.7, margin:0, fontFamily:"'Cormorant Garamond','Georgia',serif" }}>{m.msg}</p>
+                <p style={{ fontSize:13.5, color:`${DARK}bb`, lineHeight:1.7, margin:0, fontFamily:"'Cormorant Garamond','Georgia',serif" }}>{m.message}</p>
               </div>
             ))}
           </div>
         </div>
-      )}
+      )}*/}
+    </div>
+  );
+}
+
+function Countdown() {
+  const [timeLeft, setTimeLeft] = useState({ d: 0, h: 0, m: 0, s: 0 });
+
+  useEffect(() => {
+    // Fecha objetivo: 17 de Marzo de 2026 a las 16:00:00 (4:00 PM)
+    const targetDate = new Date('2026-05-17T16:00:00').getTime();
+
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      const distance = targetDate - now;
+
+      if (distance < 0) {
+        clearInterval(interval);
+        return; // El evento ya llegó
+      }
+
+      setTimeLeft({
+        d: Math.floor(distance / (1000 * 60 * 60 * 24)),
+        h: Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        m: Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)),
+        s: Math.floor((distance % (1000 * 60)) / 1000)
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const timeBlocks = [
+    { label: 'Días', val: timeLeft.d },
+    { label: 'Hrs', val: timeLeft.h },
+    { label: 'Min', val: timeLeft.m },
+    { label: 'Seg', val: timeLeft.s },
+  ];
+
+  return (
+    <div>
+      <SectionTitle>Faltan</SectionTitle>
+      <div style={{ display:'flex', gap:10, justifyContent:'center' }}>
+        {timeBlocks.map(({ label, val }) => (
+          <div key={label} style={{
+            flex:1, padding:'16px 0', borderRadius:14,
+            background:'rgba(255,255,255,0.55)',
+            border:`1px solid ${G}30`,
+            backdropFilter:'blur(4px)',
+            display:'flex', flexDirection:'column', alignItems:'center',
+            boxShadow:'0 4px 15px rgba(0,0,0,.03)'
+          }}>
+            <span style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:32, color:G, lineHeight:1, marginBottom:4, fontWeight:600, fontStyle:'italic' }}>
+              {val.toString().padStart(2, '0')}
+            </span>
+            <span style={{ fontSize:10, color:`${DARK}77`, letterSpacing:'.18em', textTransform:'uppercase', fontFamily:'Georgia,serif' }}>
+              {label}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -477,10 +646,11 @@ function InvitationPage() {
             <div style={{ position:'absolute', top:-4, right:-4, width:8, height:8, borderTop:`1.5px solid ${G}`, borderRight:`1.5px solid ${G}` }}/>
             <div style={{ position:'absolute', bottom:-4, left:-4, width:8, height:8, borderBottom:`1.5px solid ${G}`, borderLeft:`1.5px solid ${G}` }}/>
             <div style={{ position:'absolute', bottom:-4, right:-4, width:8, height:8, borderBottom:`1.5px solid ${G}`, borderRight:`1.5px solid ${G}` }}/>
-            <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:'clamp(15px,4vw,20px)', letterSpacing:'.28em', color:G, margin:0, fontWeight:600 }}>Revelación de Sexo</p>
+            <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:'clamp(15px,4vw,20px)', letterSpacing:'.28em', color:G, margin:0, fontWeight:600 }}>Revelación de Género</p>
           </div>
         </div>
         <Divider/><EventDetails/>
+        <Divider/><Countdown/>
         <Divider/><TeamVoting onVoteChange={setMyVote}/>
         <Divider/><DressCode myVote={myVote}/>
         <Divider/><WishMailbox/>
@@ -539,7 +709,7 @@ function EnvelopeScene({ phase, onOpen }: { phase:'closed'|'opening'|'opened'; o
           </div>
         ))}
       </div>
-      <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:'clamp(13px,3.5vw,16px)', color:`${DARK}66`, fontStyle:'italic', margin:0, textAlign:'center', zIndex:10, pointerEvents:'none' }}>Fátima &amp; Daniel • Revelación de Sexo</p>
+      <p style={{ fontFamily:"'Cormorant Garamond','Georgia',serif", fontSize:'clamp(13px,3.5vw,16px)', color:`${DARK}66`, fontStyle:'italic', margin:0, textAlign:'center', zIndex:10, pointerEvents:'none' }}>Fátima &amp; Daniel • Revelación de Género</p>
     </div>
   );
 }
